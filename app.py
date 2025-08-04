@@ -1,7 +1,11 @@
 app.py
 
-import streamlit as st import pandas as pd import datetime import time import yfinance as yf from strategy import analyze_candle
-
+import streamlit as st
+import pandas as pd
+import datetime
+import time
+import yfinance as yf
+from strategy import analyze_candle
 st.set_page_config(page_title="📊 Quotex Signal Bot", layout="centered") st.title("📈 Quotex Signal Bot (Accurate | Manual | Auto Refresh)")
 
 --- OTC Pairs ---
