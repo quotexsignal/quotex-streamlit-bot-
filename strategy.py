@@ -6,41 +6,69 @@ def analyze_candle(df):
     strategy_used = []
     confidence = 0
 
-    if len(df) < 14:
-        return signal, "Not enough data", confidence
+    if len(df) < 15:
+        return signal, "Insufficient data", confidence
 
-    # EMA Cross Strategy
-    df['EMA5'] = df['close'].ewm(span=5).mean()
-    df['EMA14'] = df['close'].ewm(span=14).mean()
+    # === EMA Strategy ===
+    df['EMA5'] = df['close'].ewm(span=5, adjust=False).mean()
+    df['EMA14'] = df['close'].ewm(span=14, adjust=False).mean()
+
     if df['EMA5'].iloc[-2] < df['EMA14'].iloc[-2] and df['EMA5'].iloc[-1] > df['EMA14'].iloc[-1]:
-        strategy_used.append("EMA Cross UP")
+        ema_signal = "UP"
     elif df['EMA5'].iloc[-2] > df['EMA14'].iloc[-2] and df['EMA5'].iloc[-1] < df['EMA14'].iloc[-1]:
-        strategy_used.append("EMA Cross DOWN")
+        ema_signal = "DOWN"
+    else:
+        ema_signal = None
 
-    # RSI
+    if ema_signal:
+        strategy_used.append(f"EMA({ema_signal})")
+
+    # === RSI Strategy ===
     delta = df['close'].diff()
     gain = delta.where(delta > 0, 0).rolling(window=14).mean()
     loss = -delta.where(delta < 0, 0).rolling(window=14).mean()
     rs = gain / loss
     rsi = 100 - (100 / (1 + rs))
-    rsi_val = rsi.iloc[-1]
+    rsi_value = rsi.iloc[-1]
 
-    if rsi_val < 30:
-        strategy_used.append("RSI Oversold")
-    elif rsi_val > 70:
-        strategy_used.append("RSI Overbought")
+    if rsi_value < 30:
+        rsi_signal = "UP"
+    elif rsi_value > 70:
+        rsi_signal = "DOWN"
+    else:
+        rsi_signal = None
 
-    # Engulfing pattern
+    if rsi_signal:
+        strategy_used.append(f"RSI({rsi_signal})")
+
+    # === Engulfing Pattern ===
     prev = df.iloc[-2]
     curr = df.iloc[-1]
-    if curr['open'] < curr['close'] and prev['open'] > prev['close'] and curr['open'] < prev['close'] and curr['close'] > prev['open']:
-        strategy_used.append("Bullish Engulfing")
-    elif curr['open'] > curr['close'] and prev['open'] < prev['close'] and curr['open'] > prev['close'] and curr['close'] < prev['open']:
-        strategy_used.append("Bearish Engulfing")
 
-    # Voting
-    up_votes = sum(1 for s in strategy_used if "UP" in s or "Bullish" in s or "Oversold" in s)
-    down_votes = sum(1 for s in strategy_used if "DOWN" in s or "Bearish" in s or "Overbought" in s)
+    if (
+        curr['open'] < curr['close'] and
+        prev['open'] > prev['close'] and
+        curr['open'] < prev['close'] and
+        curr['close'] > prev['open']
+    ):
+        engulfing_signal = "UP"
+    elif (
+        curr['open'] > curr['close'] and
+        prev['open'] < prev['close'] and
+        curr['open'] > prev['close'] and
+        curr['close'] < prev['open']
+    ):
+        engulfing_signal = "DOWN"
+    else:
+        engulfing_signal = None
+
+    if engulfing_signal:
+        strategy_used.append(f"Engulfing({engulfing_signal})")
+
+    # === Final Decision ===
+    votes = [ema_signal, rsi_signal, engulfing_signal]
+    up_votes = votes.count("UP")
+    down_votes = votes.count("DOWN")
 
     if up_votes > down_votes:
         signal = "UP"
@@ -48,5 +76,8 @@ def analyze_candle(df):
     elif down_votes > up_votes:
         signal = "DOWN"
         confidence = int((down_votes / 3) * 100)
+    else:
+        signal = "No Signal"
+        confidence = 50
 
-    return signal, ", ".join(strategy_used), confidence
+    return signal, ", ".join(strategy_used) if strategy_used else "None", confidence
