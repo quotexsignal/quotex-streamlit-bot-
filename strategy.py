@@ -1,34 +1,51 @@
 import pandas as pd
 
 def analyze_candle(df):
+    if df is None or df.empty or 'Close' not in df.columns:
+        return "NO DATA", 0
+
     df['EMA5'] = df['Close'].ewm(span=5, adjust=False).mean()
     df['EMA20'] = df['Close'].ewm(span=20, adjust=False).mean()
+
     df['RSI'] = compute_rsi(df['Close'])
 
+    # Drop NaN values to avoid errors
+    df.dropna(inplace=True)
+
+    if df.empty:
+        return "NO DATA", 0
+
     last_candle = df.iloc[-1]
+
+    # EMA Strategy
     ema_signal = "UP" if last_candle['EMA5'] > last_candle['EMA20'] else "DOWN"
-    rsi_signal = "UP" if last_candle['RSI'] < 30 else "DOWN" if last_candle['RSI'] > 70 else "NEUTRAL"
 
-    if ema_signal == rsi_signal and rsi_signal != "NEUTRAL":
-        signal = ema_signal
-        confidence = 90
-    elif ema_signal == "UP" and rsi_signal == "NEUTRAL":
-        signal = "UP"
-        confidence = 70
-    elif ema_signal == "DOWN" and rsi_signal == "NEUTRAL":
-        signal = "DOWN"
-        confidence = 70
+    # RSI Strategy
+    if last_candle['RSI'] < 30:
+        rsi_signal = "UP"
+    elif last_candle['RSI'] > 70:
+        rsi_signal = "DOWN"
     else:
-        signal = "NO SIGNAL"
-        confidence = 50
+        rsi_signal = ema_signal
 
-    return signal, confidence
+    # Final Decision
+    if ema_signal == rsi_signal:
+        confidence = 90
+        final_signal = ema_signal
+    else:
+        confidence = 65
+        final_signal = ema_signal
+
+    return final_signal, confidence
 
 def compute_rsi(series, period=14):
     delta = series.diff()
     gain = delta.where(delta > 0, 0)
     loss = -delta.where(delta < 0, 0)
+
     avg_gain = gain.rolling(window=period).mean()
     avg_loss = loss.rolling(window=period).mean()
+
     rs = avg_gain / avg_loss
-    return 100 - (100 / (1 + rs))
+    rsi = 100 - (100 / (1 + rs))
+    return rsi
