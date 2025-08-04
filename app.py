@@ -6,7 +6,11 @@ import datetime
 import time
 import yfinance as yf
 from strategy import analyze_candle
-st.set_page_config(page_title="📊 Quotex Signal Bot", layout="centered") st.title("📈 Quotex Signal Bot (Accurate | Manual | Auto Refresh)")
+# Line 7
+st.set_page_config(page_title="📊 Quotex Signal Bot", layout="centered")
+
+# Line 8
+st.title("📈 Quotex Signal Bot (Accurate | Manual | Auto Refresh)")
 
 --- OTC Pairs ---
 
