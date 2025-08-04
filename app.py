@@ -1,47 +1,50 @@
-app.py
-
 import streamlit as st
-import pandas as pd
-import datetime
 import time
+from datetime import datetime
 import yfinance as yf
 from strategy import analyze_candle
-# Line 7
-st.set_page_config(page_title="📊 Quotex Signal Bot", layout="centered")
 
-# Line 8
+# --- Page Settings ---
+st.set_page_config(page_title="📊 Quotex Signal Bot", layout="centered")
 st.title("📈 Quotex Signal Bot (Accurate | Manual | Auto Refresh)")
 
---- OTC Pairs ---
+# --- OTC Pairs ---
+pairs = [
+    "EURUSD_otc", "GBPUSD_otc", "USDJPY_otc", "AUDUSD_otc", "NZDUSD_otc",
+    "EURGBP_otc", "EURJPY_otc", "GBPJPY_otc", "USDCHF_otc", "USDCAD_otc"
+]
 
-otc_pairs = [ "EURUSD", "GBPUSD", "AUDUSD", "USDJPY", "NZDUSD", "USDCAD", "USDCHF", "EURGBP", "EURJPY", "GBPJPY" ]
+selected_pair = st.selectbox("Select OTC Pair", pairs)
+timeframe = st.selectbox("Select Timeframe", ["1m", "3m", "5m"])
+generate = st.button("🧠 Generate Signal")
 
---- UI Controls ---
+if "last_click" not in st.session_state:
+    st.session_state.last_click = 0
 
-pair = st.selectbox("Select OTC Pair", otc_pairs) tf = st.selectbox("Select Timeframe (minutes)", [1, 3, 5])
+if generate:
+    st.session_state.last_click = time.time()
 
-generate = st.button("📡 Generate Signal") countdown_placeholder = st.empty()
+if st.session_state.last_click > 0:
+    now = datetime.now()
+    seconds = now.second
+    wait_time = 45 - seconds if seconds < 45 else 105 - seconds
 
-if generate: with st.spinner("Analyzing latest candles..."): try: interval = f"{tf}m" end_time = datetime.datetime.now() start_time = end_time - datetime.timedelta(minutes=30)
+    with st.spinner(f"Analyzing candle... waiting for {wait_time} seconds..."):
+        time.sleep(wait_time)
 
-data = yf.download(pair + "=X", start=start_time, end=end_time, interval=interval)
-        df = data[['Open', 'High', 'Low', 'Close']].copy()
-        df.columns = ['open', 'high', 'low', 'close']
-        df.dropna(inplace=True)
+    # --- Fetch Candle Data ---
+    symbol = selected_pair.replace("_otc", "") + "=X"
+    interval_map = {"1m": "1m", "3m": "3m", "5m": "5m"}
+    interval = interval_map[timeframe]
+    data = yf.download(tickers=symbol, period="2d", interval=interval)
 
-        signal, strategy, confidence = analyze_candle(df)
+    if data is not None and len(data) >= 10:
+        signal, score = analyze_candle(data)
+        st.success(f"🔔 Signal: **{signal.upper()}**")
+        st.info(f"📊 Confidence Score: {score}%")
+    else:
+        st.error("❌ Failed to fetch enough data.")
 
-        st.success(f"🔮 **Next Candle Prediction: {signal}**")
-        st.info(f"📌 Strategy Used: {strategy}")
-        st.warning(f"🎯 Confidence Score: {confidence}%")
-
-        # Countdown
-        for i in range(60, 0, -1):
-            countdown_placeholder.markdown(f"⏳ **Refreshing in:** {i} seconds")
-            time.sleep(1)
-        st.rerun()
-
-    except Exception as e:
-        st.error(f"Error: {e}")
-        st.stop()
-
+    st.markdown("Refreshing in 60 seconds...")
+    time.sleep(60)
+    st.rerun()
