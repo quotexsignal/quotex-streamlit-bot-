@@ -8,33 +8,41 @@ import yfinance as yf
 
 st.set_page_config(page_title="Quotex Signal Bot", layout="centered")
 
-st.title("📊 Quotex Signal Bot – Mobile Friendly")
-st.markdown("**Select OTC Pair, Timeframe, and Click 'Get Signal'**")
+st.title("📊 Quotex Signal Bot – Auto Analysis")
+st.markdown("Select OTC Pair and Timeframe. Signal will auto-update.")
 
-# Pair selection
+# Sidebar options
 pair = st.selectbox("Select OTC Pair", ["EURUSD", "GBPUSD", "AUDUSD", "USDJPY", "NZDUSD", "USDCAD"])
-
-# Timeframe selection
 tf = st.selectbox("Timeframe (minutes)", [1, 3, 5])
 
-# Button to get signal
-if st.button("📡 Get Signal"):
-    with st.spinner("Analyzing candle... please wait..."):
-        try:
-            interval = f"{tf}m"
-            end_time = datetime.datetime.now()
-            start_time = end_time - datetime.timedelta(minutes=30)
-            data = yf.download(pair + "=X", start=start_time, end=end_time, interval=interval)
+interval = f"{tf}m"
+refresh_interval = tf * 60  # seconds
 
-            df = data[['Open', 'High', 'Low', 'Close']]
-            df.columns = ['open', 'high', 'low', 'close']
-            df.dropna(inplace=True)
+# Countdown Timer
+placeholder = st.empty()
 
-            signal, strategy, confidence = analyze_candle(df)
+# Analysis block
+def analyze_and_display():
+    end_time = datetime.datetime.now()
+    start_time = end_time - datetime.timedelta(minutes=30)
+    data = yf.download(pair + "=X", start=start_time, end=end_time, interval=interval)
 
-            st.success(f"🔮 **Next Candle Prediction: {signal}**")
-            st.info(f"📌 Strategy Used: {strategy}")
-            st.warning(f"🎯 Confidence Score: {confidence}%")
+    df = data[['Open', 'High', 'Low', 'Close']]
+    df.columns = ['open', 'high', 'low', 'close']
+    df.dropna(inplace=True)
 
-        except Exception as e:
-            st.error(f"Error: {e}")
+    signal, strategy, confidence = analyze_candle(df)
+
+    st.success(f"🔮 **Next Candle Prediction: {signal}**")
+    st.info(f"📌 Strategy Used: {strategy}")
+    st.warning(f"🎯 Confidence Score: {confidence}%")
+
+analyze_and_display()
+
+# Auto-refresh timer
+for remaining in range(refresh_interval, 0, -1):
+    mins, secs = divmod(remaining, 60)
+    placeholder.info(f"⏳ Refreshing in {mins:02}:{secs:02}")
+    time.sleep(1)
+
+st.rerun()
