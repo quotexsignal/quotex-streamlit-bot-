@@ -1,46 +1,46 @@
 import pandas as pd
 
-def analyze_candle(df): if df is None or df.empty or 'Close' not in df.columns: return "NO DATA", 0
+def analyze_candle(df):
+    df['EMA5'] = df['close'].ewm(span=5, adjust=False).mean()
+    df['EMA20'] = df['close'].ewm(span=20, adjust=False).mean()
+    df['RSI'] = compute_rsi(df['close'], 14)
 
-df['EMA5'] = df['Close'].ewm(span=5, adjust=False).mean()
-df['EMA20'] = df['Close'].ewm(span=20, adjust=False).mean()
-df['RSI'] = compute_rsi(df['Close'])
+    last_candle = df.iloc[-1]
 
-# Drop rows where EMA or RSI is NaN
-df = df.dropna(subset=['EMA5', 'EMA20', 'RSI'])
+    ema_signal = "UP" if last_candle['EMA5'] > last_candle['EMA20'] else "DOWN"
+    rsi_signal = "UP" if last_candle['RSI'] < 30 else "DOWN" if last_candle['RSI'] > 70 else "NEUTRAL"
 
-if df.empty:
-    return "NO DATA", 0
+    pattern_signal = "NEUTRAL"
+    if (
+        df['close'].iloc[-1] > df['open'].iloc[-1] and
+        df['close'].iloc[-2] < df['open'].iloc[-2]
+    ):
+        pattern_signal = "UP"
+    elif (
+        df['close'].iloc[-1] < df['open'].iloc[-1] and
+        df['close'].iloc[-2] > df['open'].iloc[-2]
+    ):
+        pattern_signal = "DOWN"
 
-last_candle = df.iloc[-1]
+    votes = [ema_signal, rsi_signal, pattern_signal]
+    up_votes = votes.count("UP")
+    down_votes = votes.count("DOWN")
 
-# EMA Strategy
-ema_signal = "UP" if last_candle['EMA5'] > last_candle['EMA20'] else "DOWN"
+    if up_votes > down_votes:
+        return "UP", int((up_votes / 3) * 100)
+    elif down_votes > up_votes:
+        return "DOWN", int((down_votes / 3) * 100)
+    else:
+        return "NEUTRAL", 50
 
-# RSI Strategy
-if last_candle['RSI'] < 30:
-    rsi_signal = "UP"
-elif last_candle['RSI'] > 70:
-    rsi_signal = "DOWN"
-else:
-    rsi_signal = ema_signal
+def compute_rsi(series, period=14):
+    delta = series.diff()
+    gain = delta.where(delta > 0, 0.0)
+    loss = -delta.where(delta < 0, 0.0)
 
-# Final Decision
-if ema_signal == rsi_signal:
-    confidence = 90
-    final_signal = ema_signal
-else:
-    confidence = 65
-    final_signal = ema_signal
+    avg_gain = gain.rolling(window=period).mean()
+    avg_loss = loss.rolling(window=period).mean()
 
-return final_signal, confidence
-
-def compute_rsi(series, period=14): delta = series.diff() gain = delta.where(delta > 0, 0) loss = -delta.where(delta < 0, 0)
-
-avg_gain = gain.rolling(window=period).mean()
-avg_loss = loss.rolling(window=period).mean()
-
-rs = avg_gain / avg_loss
-rsi = 100 - (100 / (1 + rs))
-return rsi
-
+    rs = avg_gain / avg_loss
+    rsi = 100 - (100 / (1 + rs))
+    return rsi
