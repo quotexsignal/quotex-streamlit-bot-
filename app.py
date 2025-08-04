@@ -1,22 +1,40 @@
+# app.py
 import streamlit as st
+import pandas as pd
+import datetime
 import time
-from strategy import analyze
+from strategy import analyze_candle
+import yfinance as yf
 
 st.set_page_config(page_title="Quotex Signal Bot", layout="centered")
 
-st.title("📊 Quotex Signal Bot (OTC)")
-st.write("Select your OTC pair and timeframe to get signal at 45 seconds of candle.")
+st.title("📊 Quotex Signal Bot – Mobile Friendly")
+st.markdown("**Select OTC Pair, Timeframe, and Click 'Get Signal'**")
 
-# User inputs
-pair = st.selectbox("Select OTC Pair", ["EURUSD-OTC", "GBPUSD-OTC", "USDJPY-OTC", "AUDCAD-OTC", "EURJPY-OTC"])
-timeframe = st.selectbox("Select Timeframe", ["1m", "3m", "5m"])
+# Pair selection
+pair = st.selectbox("Select OTC Pair", ["EURUSD", "GBPUSD", "AUDUSD", "USDJPY", "NZDUSD", "USDCAD"])
 
-# Signal button
-if st.button("🚀 Get Signal"):
-    with st.spinner("Analyzing... Waiting for 45s mark of the candle..."):
-        current_seconds = int(time.strftime("%S"))
-        wait_time = (45 - current_seconds) % 60
-        time.sleep(wait_time)
+# Timeframe selection
+tf = st.selectbox("Timeframe (minutes)", [1, 3, 5])
 
-        signal = analyze(pair, timeframe)
-        st.success(f"✅ Signal for next candle: **{signal}**")
+# Button to get signal
+if st.button("📡 Get Signal"):
+    with st.spinner("Analyzing candle... please wait..."):
+        try:
+            interval = f"{tf}m"
+            end_time = datetime.datetime.now()
+            start_time = end_time - datetime.timedelta(minutes=30)
+            data = yf.download(pair + "=X", start=start_time, end=end_time, interval=interval)
+
+            df = data[['Open', 'High', 'Low', 'Close']]
+            df.columns = ['open', 'high', 'low', 'close']
+            df.dropna(inplace=True)
+
+            signal, strategy, confidence = analyze_candle(df)
+
+            st.success(f"🔮 **Next Candle Prediction: {signal}**")
+            st.info(f"📌 Strategy Used: {strategy}")
+            st.warning(f"🎯 Confidence Score: {confidence}%")
+
+        except Exception as e:
+            st.error(f"Error: {e}")
