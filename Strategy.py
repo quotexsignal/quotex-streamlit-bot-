@@ -44,3 +44,7 @@ def analyze(df):
             reason.append("No strong candle pattern")
 
     return signal, reason
+def analyze(pair, timeframe):
+    # Simple dummy logic, real strategy aap baad mein laga sakte ho
+    import random
+    return random.choice(["UP", "DOWN"])
