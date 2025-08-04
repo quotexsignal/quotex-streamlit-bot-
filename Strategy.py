@@ -1,50 +1,53 @@
+# strategy.py
 import pandas as pd
 
-def analyze(df):
-    # EMA calculate karo
-    df['ema'] = df['close'].ewm(span=10, adjust=False).mean()
+def analyze_candle(df):
+    signal = "No Signal"
+    strategy_used = "None"
+    confidence = 0
 
-    # RSI calculate karo
+    if len(df) < 14:
+        return signal, strategy_used, confidence
+
+    # EMA Strategy
+    df['EMA5'] = df['close'].ewm(span=5, adjust=False).mean()
+    df['EMA14'] = df['close'].ewm(span=14, adjust=False).mean()
+    ema_condition = df['EMA5'].iloc[-2] < df['EMA14'].iloc[-2] and df['EMA5'].iloc[-1] > df['EMA14'].iloc[-1]
+    ema_signal = "UP" if ema_condition else "DOWN" if not ema_condition else None
+
+    # RSI Strategy
     delta = df['close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
     rs = gain / loss
-    df['rsi'] = 100 - (100 / (1 + rs))
+    rsi = 100 - (100 / (1 + rs))
+    rsi_value = rsi.iloc[-1]
+    if rsi_value < 30:
+        rsi_signal = "UP"
+    elif rsi_value > 70:
+        rsi_signal = "DOWN"
+    else:
+        rsi_signal = None
 
-    # Last 2 candles le lo
-    latest = df.iloc[-1]
+    # Candle pattern (simple bullish/bearish engulfing)
     prev = df.iloc[-2]
+    curr = df.iloc[-1]
+    engulfing = None
+    if curr['open'] < curr['close'] and prev['open'] > prev['close'] and curr['open'] < prev['close'] and curr['close'] > prev['open']:
+        engulfing = "UP"
+    elif curr['open'] > curr['close'] and prev['open'] < prev['close'] and curr['open'] > prev['close'] and curr['close'] < prev['open']:
+        engulfing = "DOWN"
 
-    signal = None
-    reason = []
-
-    # EMA ke upar/below price check karo
-    if latest['close'] > latest['ema']:
-        reason.append("Price above EMA")
-    else:
-        reason.append("Price below EMA")
-
-    # RSI condition
-    if latest['rsi'] > 70:
-        reason.append("RSI overbought")
-        signal = "DOWN"
-    elif latest['rsi'] < 30:
-        reason.append("RSI oversold")
+    # Confidence scoring
+    votes = [ema_signal, rsi_signal, engulfing]
+    vote_counts = {'UP': votes.count("UP"), 'DOWN': votes.count("DOWN")}
+    if vote_counts['UP'] > vote_counts['DOWN']:
         signal = "UP"
-    else:
-        # Simple candle pattern condition
-        if latest['close'] > latest['open']:
-            reason.append("Bullish candle")
-            signal = "UP"
-        elif latest['close'] < latest['open']:
-            reason.append("Bearish candle")
-            signal = "DOWN"
-        else:
-            signal = "No clear signal"
-            reason.append("No strong candle pattern")
+        confidence = int((vote_counts['UP'] / 3) * 100)
+    elif vote_counts['DOWN'] > vote_counts['UP']:
+        signal = "DOWN"
+        confidence = int((vote_counts['DOWN'] / 3) * 100)
 
-    return signal, reason
-def analyze(pair, timeframe):
-    # Simple dummy logic, real strategy aap baad mein laga sakte ho
-    import random
-    return random.choice(["UP", "DOWN"])
+    strategy_used = ", ".join([s for s in ["EMA", "RSI", "Engulfing"] if s in votes])
+
+    return signal, strategy_used, confidence
