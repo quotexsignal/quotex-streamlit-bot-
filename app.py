@@ -1,48 +1,39 @@
-# app.py
-import streamlit as st
-import pandas as pd
-import datetime
-import time
-from strategy import analyze_candle
-import yfinance as yf
+app.py
 
-st.set_page_config(page_title="Quotex Signal Bot", layout="centered")
+import streamlit as st import pandas as pd import datetime import time import yfinance as yf from strategy import analyze_candle
 
-st.title("📊 Quotex Signal Bot – Auto Analysis")
-st.markdown("Select OTC Pair and Timeframe. Signal will auto-update.")
+st.set_page_config(page_title="📊 Quotex Signal Bot", layout="centered") st.title("📈 Quotex Signal Bot (Accurate | Manual | Auto Refresh)")
 
-# Sidebar options
-pair = st.selectbox("Select OTC Pair", ["EURUSD", "GBPUSD", "AUDUSD", "USDJPY", "NZDUSD", "USDCAD"])
-tf = st.selectbox("Timeframe (minutes)", [1, 3, 5])
+--- OTC Pairs ---
 
-interval = f"{tf}m"
-refresh_interval = tf * 60  # seconds
+otc_pairs = [ "EURUSD", "GBPUSD", "AUDUSD", "USDJPY", "NZDUSD", "USDCAD", "USDCHF", "EURGBP", "EURJPY", "GBPJPY" ]
 
-# Countdown Timer
-placeholder = st.empty()
+--- UI Controls ---
 
-# Analysis block
-def analyze_and_display():
-    end_time = datetime.datetime.now()
-    start_time = end_time - datetime.timedelta(minutes=30)
-    data = yf.download(pair + "=X", start=start_time, end=end_time, interval=interval)
+pair = st.selectbox("Select OTC Pair", otc_pairs) tf = st.selectbox("Select Timeframe (minutes)", [1, 3, 5])
 
-    df = data[['Open', 'High', 'Low', 'Close']]
-    df.columns = ['open', 'high', 'low', 'close']
-    df.dropna(inplace=True)
+generate = st.button("📡 Generate Signal") countdown_placeholder = st.empty()
 
-    signal, strategy, confidence = analyze_candle(df)
+if generate: with st.spinner("Analyzing latest candles..."): try: interval = f"{tf}m" end_time = datetime.datetime.now() start_time = end_time - datetime.timedelta(minutes=30)
 
-    st.success(f"🔮 **Next Candle Prediction: {signal}**")
-    st.info(f"📌 Strategy Used: {strategy}")
-    st.warning(f"🎯 Confidence Score: {confidence}%")
+data = yf.download(pair + "=X", start=start_time, end=end_time, interval=interval)
+        df = data[['Open', 'High', 'Low', 'Close']].copy()
+        df.columns = ['open', 'high', 'low', 'close']
+        df.dropna(inplace=True)
 
-analyze_and_display()
+        signal, strategy, confidence = analyze_candle(df)
 
-# Auto-refresh timer
-for remaining in range(refresh_interval, 0, -1):
-    mins, secs = divmod(remaining, 60)
-    placeholder.info(f"⏳ Refreshing in {mins:02}:{secs:02}")
-    time.sleep(1)
+        st.success(f"🔮 **Next Candle Prediction: {signal}**")
+        st.info(f"📌 Strategy Used: {strategy}")
+        st.warning(f"🎯 Confidence Score: {confidence}%")
 
-st.rerun()
+        # Countdown
+        for i in range(60, 0, -1):
+            countdown_placeholder.markdown(f"⏳ **Refreshing in:** {i} seconds")
+            time.sleep(1)
+        st.rerun()
+
+    except Exception as e:
+        st.error(f"Error: {e}")
+        st.stop()
+
