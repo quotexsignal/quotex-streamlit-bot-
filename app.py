@@ -1,52 +1,44 @@
 import streamlit as st
 import time
-from datetime import datetime
-import yfinance as yf
-from strategy import analyze_candle
+import pandas as pd
+from strategy import analyze
 
-# OTC Pairs list (temporary yfinance symbols)
-pairs = {
-    "EUR/USD OTC": "EURUSD=X",
-    "GBP/USD OTC": "GBPUSD=X",
-    "USD/JPY OTC": "JPY=X"
-}
+st.set_page_config(page_title="Quotex Signal Bot", layout="centered")
 
-st.title("📊 Quotex OTC Signal Bot")
+st.title("📊 Quotex Signal Bot")
+st.write("Select your OTC pair and timeframe. At 45s of each minute, you'll get a signal based on technical analysis.")
 
-# Dropdowns
-selected_pair = st.selectbox("Select OTC Pair:", list(pairs.keys()))
-selected_timeframe = st.selectbox("Select Timeframe (min):", [1, 5, 15])
+# Pair & Timeframe selection
+pair = st.selectbox("📌 Select OTC Pair", ["EURUSD-OTC", "GBPUSD-OTC", "AUDCAD-OTC", "USDJPY-OTC"])
+timeframe = st.selectbox("⏱️ Timeframe", ["1m", "3m", "5m"])
 
-# Signal Button
-if st.button("🔍 Generate Signal"):
-    st.info("⏳ Waiting for 45th second...")
+start = st.button("🚀 Start Signal Bot")
 
-    # Wait till 45th second
-    now = datetime.utcnow()
-    wait_seconds = 45 - now.second
-    if wait_seconds > 0:
-        time.sleep(wait_seconds)
+# Simulate candle data
+def get_simulated_candles():
+    now = pd.Timestamp.now()
+    times = [now - pd.Timedelta(minutes=i) for i in range(15)][::-1]
 
-    # Convert selected TF to yfinance format
-    tf_map = {1: "1m", 5: "5m", 15: "15m"}
-    tf_str = tf_map[selected_timeframe]
+    # Fake OHLCV candle data
+    data = {
+        "timestamp": times,
+        "open": [1.100 + i*0.001 for i in range(15)],
+        "high": [1.101 + i*0.001 for i in range(15)],
+        "low": [1.099 + i*0.001 for i in range(15)],
+        "close": [1.1005 + i*0.001 for i in range(15)],
+    }
+    df = pd.DataFrame(data)
+    return df
 
-    try:
-        # Download candle data
-        data = yf.download(tickers=pairs[selected_pair], period="2d", interval=tf_str)
-        data = data.rename(columns={"Open": "open", "High": "high", "Low": "low", "Close": "close"})
+# Start Bot
+if start:
+    st.success(f"✅ Started signal bot for {pair} | TF: {timeframe}")
+    while True:
+        with st.spinner("⏳ Waiting 45 seconds..."):
+            time.sleep(45)
 
-        # Signal Analysis
-        signal, reason = analyze_candle(data)
+        df = get_simulated_candles()
+        signal, reason = analyze(df)
 
-        # Show result
-        st.success(f"📈 Signal: {signal}")
-        st.markdown("### Strategy Explanation:")
-        for r in reason:
-            st.markdown(f"- {r}")
-    except Exception as e:
-        st.error(f"❌ Error: {e}")
-import streamlit as st
-
-st.title("Quotex Signal Bot")
-st.write("Select your OTC pair and timeframe to get signal at 45 seconds of candle.")
+        st.write(f"📢 **Signal for {pair} ({timeframe})**: `{signal}`")
+        st.write("🧠 Reason:", ", ".join(reason))
