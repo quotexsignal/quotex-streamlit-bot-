@@ -46,3 +46,7 @@ if st.button("🔍 Generate Signal"):
             st.markdown(f"- {r}")
     except Exception as e:
         st.error(f"❌ Error: {e}")
+import streamlit as st
+
+st.title("Quotex Signal Bot")
+st.write("Select your OTC pair and timeframe to get signal at 45 seconds of candle.")
