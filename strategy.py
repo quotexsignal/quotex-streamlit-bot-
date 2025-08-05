@@ -1,46 +1,74 @@
 import pandas as pd
+import numpy as np
 
 def analyze_candle(df):
-    df['EMA5'] = df['close'].ewm(span=5, adjust=False).mean()
-    df['EMA20'] = df['close'].ewm(span=20, adjust=False).mean()
-    df['RSI'] = compute_rsi(df['close'], 14)
+    try:
+        # Indicators
+        df['EMA5'] = df['close'].ewm(span=5, adjust=False).mean()
+        df['EMA20'] = df['close'].ewm(span=20, adjust=False).mean()
+        df['RSI'] = compute_rsi(df['close'], 14)
 
-    last_candle = df.iloc[-1]
+        last = df.iloc[-1]
+        prev = df.iloc[-2]
 
-    ema_signal = "UP" if last_candle['EMA5'] > last_candle['EMA20'] else "DOWN"
-    rsi_signal = "UP" if last_candle['RSI'] < 30 else "DOWN" if last_candle['RSI'] > 70 else "NEUTRAL"
+        # --- Strategy checks ---
+        strategy_used = []
+        scores = []
 
-    pattern_signal = "NEUTRAL"
-    if (
-        df['close'].iloc[-1] > df['open'].iloc[-1] and
-        df['close'].iloc[-2] < df['open'].iloc[-2]
-    ):
-        pattern_signal = "UP"
-    elif (
-        df['close'].iloc[-1] < df['open'].iloc[-1] and
-        df['close'].iloc[-2] > df['open'].iloc[-2]
-    ):
-        pattern_signal = "DOWN"
+        # EMA Strategy
+        if last['EMA5'] > last['EMA20']:
+            strategy_used.append("EMA Bullish")
+            scores.append(30)
+            ema_signal = "UP"
+        else:
+            strategy_used.append("EMA Bearish")
+            scores.append(30)
+            ema_signal = "DOWN"
 
-    votes = [ema_signal, rsi_signal, pattern_signal]
-    up_votes = votes.count("UP")
-    down_votes = votes.count("DOWN")
+        # RSI Strategy
+        if last['RSI'] < 30:
+            strategy_used.append("RSI Oversold")
+            scores.append(25)
+            rsi_signal = "UP"
+        elif last['RSI'] > 70:
+            strategy_used.append("RSI Overbought")
+            scores.append(25)
+            rsi_signal = "DOWN"
+        else:
+            strategy_used.append("RSI Neutral")
+            scores.append(10)
+            rsi_signal = ema_signal  # fallback
 
-    if up_votes > down_votes:
-        return "UP", int((up_votes / 3) * 100)
-    elif down_votes > up_votes:
-        return "DOWN", int((down_votes / 3) * 100)
-    else:
-        return "NEUTRAL", 50
+        # Candle Pattern
+        if prev['close'] < prev['open'] and last['close'] > last['open'] and last['close'] > prev['open']:
+            strategy_used.append("Bullish Engulfing")
+            scores.append(40)
+            pattern_signal = "UP"
+        elif prev['close'] > prev['open'] and last['close'] < last['open'] and last['close'] < prev['open']:
+            strategy_used.append("Bearish Engulfing")
+            scores.append(40)
+            pattern_signal = "DOWN"
+        else:
+            strategy_used.append("No Pattern")
+            scores.append(10)
+            pattern_signal = ema_signal  # fallback
+
+        # Final Decision by majority
+        decisions = [ema_signal, rsi_signal, pattern_signal]
+        final_signal = max(set(decisions), key=decisions.count)
+        confidence = min(95, sum(scores))  # cap at 95%
+
+        return final_signal, confidence, ", ".join(strategy_used)
+
+    except Exception as e:
+        return "ERROR", 0, f"Error during analysis: {str(e)}"
 
 def compute_rsi(series, period=14):
     delta = series.diff()
-    gain = delta.where(delta > 0, 0.0)
-    loss = -delta.where(delta < 0, 0.0)
-
-    avg_gain = gain.rolling(window=period).mean()
-    avg_loss = loss.rolling(window=period).mean()
-
+    gain = np.where(delta > 0, delta, 0)
+    loss = np.where(delta < 0, -delta, 0)
+    avg_gain = pd.Series(gain).rolling(window=period).mean()
+    avg_loss = pd.Series(loss).rolling(window=period).mean()
     rs = avg_gain / avg_loss
     rsi = 100 - (100 / (1 + rs))
     return rsi
