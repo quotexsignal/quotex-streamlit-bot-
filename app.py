@@ -21,6 +21,7 @@ def fetch_data(pair, tf):
         "15m": "15m"
     }
     data = yf.download(tickers=pair.replace("_otc", "") + "=X", period="1d", interval=interval_map[tf])
+   data.rename(columns={"Close": "close", "Open": "open", "High": "high", "Low": "low"}, inplace=True)
     data.dropna(inplace=True)
     data = data.rename(columns={"Open": "open", "High": "high", "Low": "low", "Close": "close"})
     return data
