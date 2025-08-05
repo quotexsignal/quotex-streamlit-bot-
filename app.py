@@ -14,17 +14,17 @@ tf = st.selectbox("Select Timeframe", ["1m", "3m", "5m", "15m"])
 generate = st.button("🔍 Generate Signal")
 
 def fetch_data(pair, tf):
-    interval_map = {
-        "1m": "1m",
-        "3m": "3m",
-        "5m": "5m",
-        "15m": "15m"
-    }
+    if tf == "1m":
+        interval = "1m"
+    elif tf == "3m":
+        interval = "3m"
+    elif tf == "5m":
+        interval = "5m"
+    else:
+        interval = "1m"
+
     data = yf.download(pair.replace("_otc", "") + "=X", period="1d", interval=interval)
     data.rename(columns={"Close": "close", "Open": "open", "High": "high", "Low": "low"}, inplace=True)
-    
-    data.dropna(inplace=True)
-    data = data.rename(columns={"Open": "open", "High": "high", "Low": "low", "Close": "close"})
     return data
 
 if generate:
