@@ -1,44 +1,50 @@
 import streamlit as st
-import pandas as pd
-import yfinance as yf
 import time
-from datetime import datetime
+import yfinance as yf
 from strategy import analyze_candle
 
-st.set_page_config(page_title="Quotex Signal Bot", layout="centered")
-
+# Page setup
+st.set_page_config(page_title="📈 Quotex Signal Bot", layout="centered")
 st.title("📈 Quotex Signal Bot (Accurate | Manual | Auto Refresh)")
 
-pair = st.selectbox("Select OTC Pair", ["EURUSD_otc", "USDJPY_otc", "GBPUSD_otc", "AUDCAD_otc"])
-tf = st.selectbox("Select Timeframe", ["1m", "3m", "5m", "15m"])
-generate = st.button("🔍 Generate Signal")
+# OTC pair selection
+pair = st.selectbox("Select OTC Pair", [
+    "EURUSD_otc", "GBPUSD_otc", "AUDUSD_otc", "USDJPY_otc", "USDCHF_otc", "NZDUSD_otc"
+])
 
+# Timeframe selection
+tf = st.selectbox("Select Timeframe", ["1m", "3m", "5m"])
+
+# Function to fetch data from Yahoo Finance
 def fetch_data(pair, tf):
-    if tf == "1m":
-        interval = "1m"
-    elif tf == "3m":
-        interval = "3m"
-    elif tf == "5m":
-        interval = "5m"
-    else:
-        interval = "1m"
-
-    data = yf.download(pair.replace("_otc", "") + "=X", period="1d", interval=interval)
-    data.rename(columns={"Close": "close", "Open": "open", "High": "high", "Low": "low"}, inplace=True)
+    interval_map = {"1m": "1m", "3m": "3m", "5m": "5m"}
+    interval = interval_map.get(tf, "1m")
+    ticker = pair.replace("_otc", "") + "=X"
+    data = yf.download(ticker, period="1d", interval=interval)
+    data.rename(columns={
+        "Close": "close",
+        "Open": "open",
+        "High": "high",
+        "Low": "low"
+    }, inplace=True)
     return data
 
-if generate:
-    with st.spinner("Analyzing..."):
-        data = fetch_data(pair, tf)
+# Generate Signal button
+if st.button("🔍 Generate Signal"):
+    with st.spinner("Analyzing... please wait..."):
+        try:
+            df = fetch_data(pair, tf)
+            signal, confidence, strategy = analyze_candle(df)
 
-        if data.empty or len(data) < 20:
-            st.error("Not enough data to analyze.")
-        else:
-            signal, score = analyze_candle(data)
-            st.success(f"Next Candle Prediction: **{signal}** 📊 (Confidence: {score}%)")
+            st.success(f"📊 Signal: **{signal.upper()}**")
+            st.info(f"✅ Confidence: **{confidence}%**")
+            st.code(f"📌 Strategy Used: {strategy}")
 
-            # Auto refresh countdown
+            # 60-second countdown
             for i in range(60, 0, -1):
-                st.info(f"⏳ Refreshing in {i} seconds...")
+                st.write(f"⏱️ Auto-refresh in {i} seconds...")
                 time.sleep(1)
             st.experimental_rerun()
+
+        except Exception as e:
+            st.error(f"❌ Error during analysis: {str(e)}")
