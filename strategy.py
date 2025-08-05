@@ -2,12 +2,16 @@ import pandas as pd
 import numpy as np
 
 def analyze_candle(df):
-    try:
-        # Indicators
-        df['EMA5'] = df['close'].ewm(span=5, adjust=False).mean()
-        df['EMA20'] = df['close'].ewm(span=20, adjust=False).mean()
-        df['RSI'] = compute_rsi(df['close'], 14)
+    df['EMA5'] = df['close'].ewm(span=5, adjust=False).mean()
+    df['EMA20'] = df['close'].ewm(span=20, adjust=False).mean()
 
+    last_candle = df.iloc[-1]
+    if last_candle['EMA5'] > last_candle['EMA20']:
+        signal = "UP"
+    else:
+        signal = "DOWN"
+
+    return signal
         last = df.iloc[-1]
         prev = df.iloc[-2]
 
